@@ -352,7 +352,7 @@ uv sync --all-packages
 - [uv Documentation](https://docs.astral.sh/uv/)
 - [pyproject.toml Specification](https://packaging.python.org/en/latest/specifications/pyproject-toml/)
 - [Python Packaging Guide](https://packaging.python.org/)
-- [Project README](../README.md)
+- [Project README](../../README.md)
 
 ## Template Metadata
 

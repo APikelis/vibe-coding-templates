@@ -36,9 +36,9 @@ Required information:
 ## Step 2: Create Project Structure
 
 ```bash
-mkdir -p {project_name}
-cd {project_name}
-mkdir -p src/{package_name} tests docs scripts .github/workflows
+mkdir -p {{project_name}}
+cd {{project_name}}
+mkdir -p src/{{package_name}} tests docs scripts .github/workflows
 ```
 
 ## Step 3: Create Core Configuration Files
@@ -111,9 +111,9 @@ Standard Python gitignore. `uv.lock` is **committed on purpose** for reproducibl
 
 ### README.md
 ```markdown
-# {project_name}
+# {{project_name}}
 
-{description}
+{{description}}
 
 ## Installation
 
@@ -124,7 +124,7 @@ uv sync --dev
 ## Usage
 
 ```bash
-uv run {package_name}
+uv run {{package_name}}
 ```
 
 ## Development
@@ -184,13 +184,13 @@ The CLAUDE.md file helps Claude Code understand:
 - Code style preferences
 - Git workflow
 
-### src/{package_name}/__init__.py
+### src/{{package_name}}/__init__.py
 ```python
-"""{package_name} package."""
+"""{{package_name}} package."""
 __version__ = "0.1.0"
 ```
 
-### src/{package_name}/main.py
+### src/{{package_name}}/main.py
 Create a minimal main module with at least one function to test.
 
 ## Step 5: Set Up Testing
@@ -207,7 +207,7 @@ These documents cover:
 ### tests/test_main.py
 Create basic tests that import and test your package:
 ```python
-from src.{package_name}.main import your_function
+from src.{{package_name}}.main import your_function
 
 def test_your_function():
     assert your_function() is not None
@@ -270,7 +270,7 @@ Read `docs/cicd/PRE_COMMIT.md` for the hook table, how to add hooks, and trouble
 
 ```bash
 # Navigate to project directory
-cd {project_name}
+cd {{project_name}}
 
 # Initialize git FIRST (required for pre-commit)
 git init
@@ -310,12 +310,12 @@ git commit -m "Initial project structure"
 
 ```bash
 # ✅ CORRECT - Uses project's virtual environment
-uv run python src/{package_name}/main.py
-uv run python -m {package_name}.main
+uv run python src/{{package_name}}/main.py
+uv run python -m {{package_name}}.main
 
 # ❌ INCORRECT - May use system Python or wrong environment
-python src/{package_name}/main.py  # DO NOT USE
-python -m {package_name}.main      # DO NOT USE
+python src/{{package_name}}/main.py  # DO NOT USE
+python -m {{package_name}}.main      # DO NOT USE
 ```
 
 ### Verification Commands
@@ -324,7 +324,7 @@ Run these commands to verify setup:
 
 ```bash
 # Run the application (ALWAYS use uv run python)
-uv run python src/{package_name}/main.py
+uv run python src/{{package_name}}/main.py
 
 # Package management
 uv --version
@@ -355,10 +355,10 @@ make check
 
 | Placeholder | Description | Example |
 |------------|-------------|---------|
-| `{project_name}` | Project directory | `my-project` |
-| `{package_name}` | Python package | `my_package` |
-| `{description}` | Project description | `Data processing tool` |
-| `{python_version}` | Minimum Python version | `3.12` |
+| `{{project_name}}` | Project directory | `my-project` |
+| `{{package_name}}` | Python package | `my_package` |
+| `{{description}}` | Project description | `Data processing tool` |
+| `{{python_version}}` | Minimum Python version | `3.12` |
 
 ## ⚠️ CRITICAL: Read Referenced Documentation
 
@@ -409,7 +409,7 @@ ls -la src/ tests/ docs/  # MUST exist
 uv sync --dev  # MUST complete without errors
 
 # 3. Run the application (ALWAYS use uv run python, NOT plain python)
-uv run python src/{package_name}/main.py  # MUST run without errors
+uv run python src/{{package_name}}/main.py  # MUST run without errors
 
 # 4. Run tests with coverage
 uv run pytest --cov --cov-report=term-missing  # MUST pass all tests

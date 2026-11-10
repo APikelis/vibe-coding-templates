@@ -324,9 +324,8 @@ Or with dynamic coverage:
 ## Related Documentation
 
 - [Unit Testing Guide](./UNIT_TESTING.md) - General unit testing practices
-- [Testing Overview](./TESTING.md) - Complete testing guide
-- [CI/CD Setup](./CI_CD.md) - Continuous integration configuration
-- [Project README](../README.md) - Project overview
+- [CI/CD Setup](../cicd/GITHUB_ACTIONS.md) - Continuous integration configuration
+- [Project README](../../../README.md) - Project overview
 
 ## Template Information
 

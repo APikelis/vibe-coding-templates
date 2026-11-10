@@ -31,7 +31,7 @@ Quick reference for AI agents using vibe-coding-templates to bootstrap Python pr
 2. **READ [docs/PACKAGE_MANAGEMENT.md](docs/PACKAGE_MANAGEMENT.md)** when creating pyproject.toml and Makefile (Step 3)
 3. **MUST create .github/workflows/ci.yml** (Step 6) - read GitHub Actions docs first
 4. **MUST create .pre-commit-config.yaml** (Step 7) - read Pre-commit docs first
-5. Replace placeholders: `{project_name}` → `data-processor`, `{package_name}` → `data_processor`
+5. Replace placeholders: `{{project_name}}` → `data-processor`, `{{package_name}}` → `data_processor`
 6. Run ALL verification commands from Step 9 to ensure completeness
 
 ### Scenario 2: Add CI/CD to Existing Project

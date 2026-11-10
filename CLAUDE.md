@@ -135,12 +135,12 @@ Common make targets:
 ## Template Placeholders
 
 Common placeholders to replace:
-- `{project_name}` - Project directory name
-- `{package_name}` - Language-specific package name
-- `{description}` - Project description
-- `{author}` - Author name
-- `{email}` - Author email
-- `{python_version}` or `{language_version}` - Target language version
+- `{{project_name}}` - Project directory name
+- `{{package_name}}` - Language-specific package name
+- `{{description}}` - Project description
+- `{{author}}` - Author name
+- `{{email}}` - Author email
+- `{{python_version}}` or `{{language_version}}` - Target language version
 
 ## Future Templates
 
