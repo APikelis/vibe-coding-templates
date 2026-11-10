@@ -56,8 +56,8 @@ uv run python script.py
 # Run pytest
 uv run pytest
 
-# Run with coverage
-uv run pytest --cov=src/{{package_name}}
+# Run with coverage (floor is set in pyproject.toml)
+uv run pytest --cov
 
 # Run any command
 uv run make test
@@ -86,7 +86,7 @@ uv pip list
 
 ### pyproject.toml
 
-The project uses `pyproject.toml` for dependency management:
+The project uses `pyproject.toml` for dependency management. Start from [`templates/config/pyproject.toml`](../templates/config/pyproject.toml).
 
 ```toml
 [project]
@@ -95,15 +95,18 @@ dependencies = [
     "python-dotenv>=1.0.0",
 ]
 
-[tool.uv]
-dev-dependencies = [
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.24.0",
-    "pytest-cov>=6.0.0",
-    "mypy>=1.0.0",
-    "ruff>=0.8.0",
+# Dev tools live in a PEP 735 dependency group, not the deprecated [tool.uv] dev-dependencies.
+[dependency-groups]
+dev = [
+    "mypy",
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+    "ruff",
 ]
 ```
+
+Do not pin the dev tools by hand. Run `uv add --dev <package>` and uv writes the current version and updates `uv.lock`. Extra groups (for example `docs` or `bench`, used by the optional workflows) are added with `uv add --group <name> <package>`.
 
 ### Lock File
 
@@ -125,8 +128,8 @@ uv sync --dev
 # Run tests
 uv run pytest
 
-# Run with coverage
-uv run pytest --cov=src/{{package_name}}
+# Run with coverage (floor is set in pyproject.toml)
+uv run pytest --cov
 
 # Run linting
 uv run ruff check .
@@ -145,7 +148,7 @@ uv run ruff format .
 uv add fastapi
 
 # Add dev dependency
-uv add --dev black
+uv add --dev pytest-mock
 
 # Add with version constraint
 uv add "pandas>=2.0.0"
@@ -177,55 +180,60 @@ uv pip show package-name
 
 ## Makefile Integration
 
-The project includes a comprehensive Makefile configured to use uv for all operations.
+The project includes a Makefile where every target goes through `uv run`, so it uses the project's locked environment.
 
 📚 **See the complete Makefile template: [python/templates/Makefile](../templates/Makefile)**
 
-### Common Make Targets
+### Make Targets
 
 ```bash
-# Installation
-make install        # Install production dependencies
-make dev-install    # Install all dependencies including dev
-make upgrade        # Upgrade all dependencies
+# Setup
+make install        # uv sync --dev, then install commit and pre-push git hooks
+make upgrade        # Upgrade the lockfile to the latest allowed versions
+make lock-check     # Fail if uv.lock is out of date
+
+# Quality
+make format         # ruff format + ruff check --fix
+make lint           # ruff check + ruff format --check (no changes)
+make typecheck      # mypy on src/
 
 # Testing
-make test          # Run all tests
-make test-cov      # Run tests with coverage report
-make test-watch    # Run tests in watch mode
+make test           # Run tests
+make coverage       # Tests with coverage (floor is fail_under in pyproject.toml)
 
-# Code Quality
-make lint          # Run all linting checks
-make lint-fix      # Fix auto-fixable issues
-make format        # Format code with ruff and black
-make typecheck     # Run type checking with mypy
+# Security
+make audit          # pip-audit on the locked dependencies
+make secrets        # gitleaks (needs gitleaks installed)
 
-# Development
-make run           # Run the main application
-make shell         # Open interactive Python shell
-make clean         # Clean build artifacts
+# Everything CI runs
+make check          # lock-check, lint, typecheck, coverage
 
-# Quality Assurance
-make qa            # Run all quality checks
-make ready         # Prepare code for commit
+# Run and build
+make run            # python -m <package>
+make build          # uv build
+make clean          # Remove build output and caches
 ```
 
-The Makefile template includes many more targets for CI/CD, documentation, dependency management, and more. See the full template for complete functionality.
+Run `make help` for the list.
 
 ## CI/CD Integration
 
-### GitHub Actions
+See [GitHub Actions Setup](./cicd/GITHUB_ACTIONS.md) for the workflow templates. The uv steps in them look like this:
 
 ```yaml
 - name: Install uv
-  uses: astral-sh/setup-uv@v3
-  
+  uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+  with:
+    enable-cache: true
+
 - name: Install dependencies
   run: uv sync --dev
 
 - name: Run tests
-  run: uv run pytest --cov=src/{{package_name}}
+  run: uv run pytest --cov
 ```
+
+CI sets `UV_FROZEN: "1"`, so a stale or missing `uv.lock` fails the build rather than being silently re-resolved.
 
 ## Migration from pip
 
@@ -281,10 +289,13 @@ uv sync --dev
 
 **Wrong Python version**
 ```bash
-# Specify Python version
-uv venv --python 3.11
+# Specify Python version (match requires-python in pyproject.toml)
+uv venv --python 3.13
 uv sync
 ```
+
+**CI fails with a lockfile error**
+`uv.lock` is out of date or not committed. Run `uv lock`, commit the result, and check with `make lock-check`. CI sets `UV_FROZEN=1` on purpose.
 
 **Import errors after install**
 ```bash
@@ -321,8 +332,9 @@ uv add --extra-index-url https://extra.pypi.org/simple/ package
 ```
 
 ### Platform-specific Dependencies
+Use PEP 508 environment markers in `[project].dependencies`:
 ```toml
-[tool.uv]
+[project]
 dependencies = [
     "windows-only-package ; sys_platform == 'win32'",
     "unix-only-package ; sys_platform != 'win32'",
@@ -331,8 +343,8 @@ dependencies = [
 
 ### Workspace Management
 ```bash
-# For monorepo with multiple packages
-uv sync --workspace
+# For monorepo with multiple packages: sync every workspace member
+uv sync --all-packages
 ```
 
 ## Related Documentation

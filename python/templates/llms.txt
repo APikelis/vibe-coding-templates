@@ -50,11 +50,11 @@ uv sync --dev
 # Run tests
 uv run pytest
 
-# Check coverage
-uv run pytest --cov={{package_name}}
+# Check coverage (floor is set in pyproject.toml)
+uv run pytest --cov
 
-# Run all quality checks
-make qa
+# Run everything CI runs
+make check
 
 # Format code
 make format

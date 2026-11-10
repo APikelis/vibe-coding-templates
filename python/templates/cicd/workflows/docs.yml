@@ -1,0 +1,70 @@
+# Documentation build and GitHub Pages deploy (MkDocs).
+# Needs a `docs` dependency group:  uv add --group docs mkdocs mkdocs-material "mkdocstrings[python]"
+# Delete this file for a PoC that does not publish docs.
+
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+    paths: ["docs/**", "src/**/*.py", "mkdocs.yml", "README.md"]
+  pull_request:
+    branches: [main]
+    paths: ["docs/**", "mkdocs.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --group docs
+
+      - name: Build
+        run: uv run mkdocs build --strict
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          path: site/
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write # deploy only
+      id-token: write # required by deploy-pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+# Minimal mkdocs.yml:
+#   site_name: {{package_name}}
+#   theme: { name: material }
+#   plugins:
+#     - search
+#     - mkdocstrings: { handlers: { python: { paths: [src] } } }

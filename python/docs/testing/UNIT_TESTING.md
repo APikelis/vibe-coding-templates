@@ -9,7 +9,7 @@ Comprehensive guide for writing and running unit tests in Python projects using 
 uv run pytest
 
 # Run with coverage
-uv run pytest --cov=src
+uv run pytest --cov
 
 # Run specific test file
 uv run pytest tests/test_main.py
@@ -294,29 +294,17 @@ class TestUserManagement:
 
 ## Configuration
 
+The [`pyproject.toml` template](../../templates/config/pyproject.toml) already has this. Coverage is **not** in `addopts`: plain `pytest` stays fast, and coverage is requested with `--cov` (which `make coverage` and CI do).
+
 ### pyproject.toml
 
 ```toml
 [tool.pytest.ini_options]
-minversion = "7.0"
 testpaths = ["tests"]
-python_files = ["test_*.py", "*_test.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-addopts = [
-    "-ra",
-    "--strict-markers",
-    "--strict-config",
-    "--cov=src",
-    "--cov-branch",
-    "--cov-report=term-missing",
-    "--cov-report=html",
-    "--cov-report=xml",
-]
+addopts = "--strict-markers --strict-config"
 markers = [
     "slow: marks tests as slow",
     "integration: marks tests as integration tests",
-    "unit: marks tests as unit tests",
 ]
 ```
 
@@ -324,32 +312,16 @@ markers = [
 
 ```toml
 [tool.coverage.run]
-source = ["src"]
+source = ["src/{{package_name}}"]
 branch = true
-parallel = true
-omit = [
-    "*/tests/*",
-    "*/test_*.py",
-    "*/__init__.py",
-]
 
 [tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "if self.debug:",
-    "if __name__ == .__main__.:",
-    "raise AssertionError",
-    "raise NotImplementedError",
-    "if TYPE_CHECKING:",
-]
-precision = 2
+fail_under = 80
 show_missing = true
-skip_covered = false
-
-[tool.coverage.html]
-directory = "htmlcov"
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError"]
 ```
+
+`source` is what lets a bare `--cov` work. `fail_under` is the single place the coverage floor is defined; CI, the pre-push hook and `make coverage` all read it.
 
 ## Best Practices
 
@@ -432,43 +404,27 @@ def test_exception_details():
 
 ## Continuous Integration
 
-### GitHub Actions
+Use the [`ci.yml`](../../templates/cicd/workflows/ci.yml) template; see [GITHUB_ACTIONS.md](../cicd/GITHUB_ACTIONS.md). Its `test` job is:
 
 ```yaml
-name: Tests
-
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11", "3.12"]
-    
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - uses: astral-sh/setup-uv@v3
-      
-      - name: Install dependencies
-        run: uv sync --dev
-      
-      - name: Run tests
-        run: |
-          uv run pytest \
-            --cov=src \
-            --cov-report=xml \
-            --cov-report=term-missing \
-            --junit-xml=test-results.xml
-      
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.xml
+strategy:
+  fail-fast: false
+  matrix:
+    os: [ubuntu-latest]
+    python-version: ["3.12", "3.13", "3.14"]
+steps:
+  - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    with:
+      persist-credentials: false
+  - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+    with:
+      enable-cache: true
+      python-version: ${{ matrix.python-version }}
+  - run: uv sync --dev
+  - run: uv run pytest --cov --cov-report=term-missing --cov-report=xml
 ```
+
+`setup-uv` installs the interpreter, so a separate `setup-python` step is not needed. The coverage floor is `fail_under` in `pyproject.toml`.
 
 ## Advanced Topics
 

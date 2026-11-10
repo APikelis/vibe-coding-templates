@@ -36,9 +36,9 @@ vibe-coding-templates/
 │       ├── Makefile       # Development tasks
 │       ├── llms.txt       # AI documentation template
 │       ├── CLAUDE.md      # Claude-specific template
+│       ├── config/        # pyproject.toml, .pre-commit-config.yaml, .gitignore
 │       └── cicd/
-│           ├── workflows/ # GitHub Actions
-│           └── hooks/     # Pre-commit hooks
+│           └── workflows/ # GitHub Actions: ci, release, docs, benchmark
 └── README.md              # This file
 ```
 
@@ -84,6 +84,8 @@ Complete Python project setup with:
 - [Makefile](python/templates/Makefile) - Complete development tasks
 - [llms.txt](python/templates/llms.txt) - AI agent documentation
 - [CLAUDE.md](python/templates/CLAUDE.md) - Claude-specific instructions
+- [pyproject.toml](python/templates/config/pyproject.toml) - Project, ruff, mypy, pytest and coverage config
+- [Pre-commit config](python/templates/config/.pre-commit-config.yaml) - SHA-pinned hooks
 - [CI/CD Workflows](python/templates/cicd/workflows/) - GitHub Actions
 
 ### Future Languages
@@ -118,9 +120,9 @@ The AI agent follows [python/BOOTSTRAP.md](python/BOOTSTRAP.md) to create a comp
 |---------|---------------|--------------|----------|
 | Package Management | uv | [docs](python/docs/PACKAGE_MANAGEMENT.md) | [Makefile](python/templates/Makefile) |
 | Testing | pytest | [docs](python/docs/testing/TEST_COVERAGE.md) | - |
-| Code Quality | ruff, black, mypy | [docs](python/docs/testing/CODE_QUALITY.md) | [hooks](python/templates/cicd/hooks/) |
+| Code Quality | ruff, mypy | [docs](python/docs/testing/CODE_QUALITY.md) | [pyproject.toml](python/templates/config/pyproject.toml) |
 | CI/CD | GitHub Actions | [docs](python/docs/cicd/GITHUB_ACTIONS.md) | [workflows](python/templates/cicd/workflows/) |
-| Pre-commit | pre-commit | [docs](python/docs/cicd/PRE_COMMIT.md) | [hooks](python/templates/cicd/hooks/) |
+| Pre-commit | pre-commit | [docs](python/docs/cicd/PRE_COMMIT.md) | [config](python/templates/config/.pre-commit-config.yaml) |
 | AI Documentation | llms.txt | [docs](python/docs/LLMS_TXT.md) | [llms.txt](python/templates/llms.txt) |
 
 ## 🤝 Contributing

@@ -2,225 +2,186 @@
 
 ## Overview
 
-GitHub Actions provides continuous integration and deployment automation. This guide helps you set up workflows based on your project's requirements.
+The templates give you four workflows in [`templates/cicd/workflows/`](../../templates/cicd/workflows/). One is needed by every project; the other three are optional and each says at the top when to delete it.
+
+| Template | Copy to | Needed when |
+|----------|---------|-------------|
+| [`ci.yml`](../../templates/cicd/workflows/ci.yml) | `.github/workflows/ci.yml` | Always |
+| [`release.yml`](../../templates/cicd/workflows/release.yml) | `.github/workflows/release.yml` | Publishing to PyPI on a `v*` tag |
+| [`docs.yml`](../../templates/cicd/workflows/docs.yml) | `.github/workflows/docs.yml` | Publishing MkDocs to GitHub Pages |
+| [`benchmark.yml`](../../templates/cicd/workflows/benchmark.yml) | `.github/workflows/benchmark.yml` | You have `tests/performance/` |
+
+For a proof of concept that does not publish anything, copy `ci.yml` only.
 
 ## Quick Start
 
-1. **Create Workflow Directory**
-   ```bash
-   mkdir -p .github/workflows
-   ```
-
-2. **Choose Your Workflows**
-   Select from the available templates based on your project needs:
-   - **Required**: Test suite for all projects
-   - **Recommended**: Coverage reporting and linting
-   - **Optional**: Benchmarks, releases, documentation
-
-3. **Copy and Customize Templates**
-   Copy the relevant templates from `templates/cicd/workflows/` and customize for your project.
-
-## Choosing Workflows for Your Project
-
-### Essential Workflows (Required)
-- **Test Suite**: Run tests across Python versions
-  - Template: `github-actions-test.yaml`
-  - Purpose: Ensure code works on supported platforms
-
-### Recommended Workflows
-- **Coverage**: Track test coverage metrics
-  - Template: `github-actions-coverage.yaml`
-  - Purpose: Maintain code quality standards
-- **Linting**: Automated code quality checks
-  - Template: `github-actions-lint.yaml`
-  - Purpose: Enforce coding standards
-
-### Optional Workflows
-- **Benchmarks**: Performance testing
-- **Release**: PyPI publishing automation
-- **Documentation**: Auto-generate docs
-
-## Available Workflow Templates
-
-### Testing Workflows
-- **Test Suite**: [github-actions-test.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/workflows/github-actions-test.yaml)
-- **Coverage**: [github-actions-coverage.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/workflows/github-actions-coverage.yaml)
-- **Benchmarks**: [github-actions-benchmark.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/workflows/github-actions-benchmark.yaml)
-
-### Quality Workflows
-- **Linting**: [github-actions-lint.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/workflows/github-actions-lint.yaml)
-- **Security**: [github-actions-security.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/workflows/github-actions-security.yaml)
-- **Dependencies**: [github-actions-deps.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/workflows/github-actions-deps.yaml)
-
-### Release Workflows
-- **PyPI Release**: [github-actions-release.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/workflows/github-actions-release.yaml)
-- **GitHub Release**: [github-actions-gh-release.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/workflows/github-actions-gh-release.yaml)
-- **Documentation**: [github-actions-docs.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/workflows/github-actions-docs.yaml)
-
-## Setting Up Workflows
-
-### Step 1: Choose Your Workflows
-Decide which workflows you need:
-- **Minimum**: Test suite (`github-actions-test.yaml`)
-- **Recommended**: Add coverage and linting
-- **Full CI/CD**: Include all relevant workflows
-
-### Step 2: Copy Templates
 ```bash
-# Copy test workflow (required)
-cp templates/cicd/workflows/github-actions-test.yaml .github/workflows/test.yml
-
-# Copy coverage workflow (recommended)
-cp templates/cicd/workflows/github-actions-coverage.yaml .github/workflows/coverage.yml
-
-# Copy other workflows as needed
+mkdir -p .github/workflows
+cp templates/cicd/workflows/ci.yml .github/workflows/ci.yml
 ```
 
-### Step 3: Customize Configuration
-Replace placeholders in your workflow files:
-- `{package_name}` → Your package name
-- `{python_version}` → Your Python version(s)
-- Update branch names in triggers
-- Adjust matrix strategy for your needs
+Then replace `{{package_name}}` (used in the wheel smoke test) and adjust the Python matrix.
 
-### Step 4: Configure Secrets (if needed)
-For workflows requiring secrets:
-1. Go to Settings → Secrets → Actions
-2. Add required secrets (e.g., `PYPI_API_TOKEN` for releases)
+## What `ci.yml` Does
 
-## Workflow Triggers
+| Job | Runs | Notes |
+|-----|------|-------|
+| `lint` | `ruff check`, `ruff format --check`, `mypy src/` | Same commands as `make lint typecheck` |
+| `test` | `pytest --cov` on Python 3.12, 3.13, 3.14 (Ubuntu), plus 3.13 on macOS and Windows | Coverage floor comes from `fail_under` in `pyproject.toml`; XML uploaded to Codecov from one cell |
+| `secrets-scan` | gitleaks over full history | CLI download is checksum-verified |
+| `audit` | `pip-audit` on the **locked** dependencies | Exports `uv.lock`, so it audits what you ship |
+| `build` | `uv build`, then imports the wheel in a clean environment | Needs `lint` and `test`; requires the package to expose `__version__` |
 
-### Common Trigger Patterns
+Run the equivalent locally with `make check`.
+
+### Requirements This Imposes on the Project
+
+- **`uv.lock` must be committed.** `UV_FROZEN=1` makes CI fail if the lockfile is out of date rather than silently re-resolving. Check with `make lock-check`.
+- **Coverage floor lives in `pyproject.toml`** (`[tool.coverage.report] fail_under`), not in the workflow.
+- **The package needs `__version__`** or the smoke test fails. Either define it or change the smoke-test command.
+- **Adjust the matrix to what you support.** The template tests the current supported Python releases and one cell each on macOS and Windows. Drop the extra OS cells if you do not ship there.
+
+## Security Defaults in the Templates
+
+These are on in every workflow. Keep them when customising.
+
+- **Actions pinned to commit SHAs**, with the tag in a comment (`# v7.0.1`). A moved tag cannot change what runs.
+- **`permissions: contents: read`** at workflow level. A job that needs more declares it itself and only for that job.
+- **`persist-credentials: false`** on checkout, so later steps cannot reuse the token.
+- **`timeout-minutes`** on every job.
+- **`concurrency`** so a newer push cancels the run it supersedes.
+
+Update pins with a tool rather than by hand, and review each bump:
+
+```bash
+# Dependabot (github-actions ecosystem) or Renovate will open PRs that keep SHA + comment in step.
+```
+
+Example `.github/dependabot.yml`:
+
 ```yaml
-# On push to specific branches
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+```
+
+## Release Workflow Setup
+
+`release.yml` uses **PyPI trusted publishing (OIDC)**. No PyPI token is stored anywhere.
+
+One-off setup on pypi.org: add your repository, the workflow filename `release.yml`, and the environment name `pypi` as a trusted publisher. In GitHub, create an environment called `pypi` (you can require a manual approval on it).
+
+Flow on a `v*` tag: build, smoke-test the wheel, publish to PyPI (`id-token: write` on that job only), then create a GitHub release (`contents: write` on that job only).
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+## Docs Workflow Setup
+
+`docs.yml` builds MkDocs with `--strict` and deploys to GitHub Pages from `main`.
+
+```bash
+uv add --group docs mkdocs mkdocs-material "mkdocstrings[python]"
+```
+
+In the repository settings, set Pages source to **GitHub Actions**. A minimal `mkdocs.yml` is in a comment at the bottom of the template.
+
+## Benchmark Workflow Setup
+
+`benchmark.yml` runs `tests/performance/` with pytest-benchmark and alerts at a 120% regression.
+
+```bash
+uv add --group bench pytest-benchmark
+```
+
+Storing results pushes to `gh-pages`, so write access is confined to the `store-results` job, which only runs on `main`. Pull requests never receive a write token.
+
+## Secrets
+
+| Secret | Used by | Notes |
+|--------|---------|-------|
+| `CODECOV_TOKEN` | `ci.yml` upload step | Optional; `fail_ci_if_error` is false |
+| None for PyPI | `release.yml` | Trusted publishing replaces `PYPI_API_TOKEN` |
+
+`GITHUB_TOKEN` is provided automatically and scoped by the `permissions` blocks.
+
+## Common Trigger Patterns
+
+```yaml
 on:
   push:
-    branches: [main, develop]
-    
-# On pull request
-on:
+    branches: [main]
   pull_request:
     branches: [main]
-    
-# On release
-on:
-  release:
-    types: [published]
-    
-# On schedule
-on:
+  push:
+    tags: ["v*"]
   schedule:
-    - cron: '0 0 * * 0'  # Weekly
-    
-# Manual trigger
-on:
+    - cron: "0 0 * * 0"   # weekly
   workflow_dispatch:
 ```
 
-## Using uv in Workflows
+Combine the keys you need under a single `on:`; a key may appear only once.
 
-Most Python workflows should use `uv` for package management:
+## Using uv in Workflows
 
 ```yaml
 - name: Install uv
-  uses: astral-sh/setup-uv@v3
-  
-- name: Install dependencies
-  run: uv sync --dev
-  
-- name: Run tests
-  run: uv run pytest
-```
-
-## Workflow Best Practices
-
-### 1. Use Matrix Strategy
-Test across multiple environments:
-```yaml
-strategy:
-  matrix:
-    python-version: ['3.9', '3.10', '3.11']
-    os: [ubuntu-latest, macos-latest]
-```
-
-### 2. Cache Dependencies
-Speed up workflow runs:
-```yaml
-- uses: actions/cache@v3
+  uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
   with:
-    path: ~/.cache/uv
-    key: uv-${{ hashFiles('**/uv.lock') }}
+    enable-cache: true
+    python-version: ${{ matrix.python-version }}
+
+- run: uv sync --dev
+- run: uv run pytest
 ```
 
-### 3. Use Concurrency Control
-Prevent duplicate runs:
-```yaml
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-```
-
-### 4. Set Timeouts
-Prevent hanging workflows:
-```yaml
-jobs:
-  test:
-    timeout-minutes: 30
-```
+`setup-uv` provides dependency caching with `enable-cache`, so a separate `actions/cache` step is not needed.
 
 ## Status Badges
 
-Add badges to your README to show workflow status:
-
 ```markdown
-![Tests](https://github.com/{username}/{repo}/workflows/Test%20Suite/badge.svg)
+![CI](https://github.com/{username}/{repo}/actions/workflows/ci.yml/badge.svg)
 ![Coverage](https://codecov.io/gh/{username}/{repo}/branch/main/graph/badge.svg)
-![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue)
 ```
-
-Replace `{username}` and `{repo}` with your GitHub details.
 
 ## Troubleshooting
 
-### Common Issues
-
 **Workflow not triggering**
-- Check branch names in triggers
-- Verify file location (`.github/workflows/`)
-- Ensure YAML syntax is valid
+- Check branch names and `paths:` filters in the trigger
+- Confirm the file is in `.github/workflows/`
+- Validate the YAML
+
+**`uv.lock` out of date**
+Run `uv lock` locally and commit the result. CI fails on purpose here.
 
 **Permission errors**
+Grant the extra scope on the one job that needs it:
 ```yaml
-permissions:
-  contents: read
-  pull-requests: write
+jobs:
+  my-job:
+    permissions:
+      pull-requests: write
 ```
 
-**Secret not found**
-- Verify secret name matches exactly
-- Check secret is set in repository settings
-- Ensure secret scope (repository/organization)
+**Wheel smoke test fails**
+Make sure `{{package_name}}` is replaced and the package defines `__version__`.
+
+**Trusted publishing rejected**
+The workflow filename and environment name on PyPI must match `release.yml` and `pypi` exactly.
 
 ## Related Documentation
 
-- [GitHub Actions Documentation](https://docs.github.com/en/actions)
+- [GitHub Actions documentation](https://docs.github.com/en/actions)
 - [Pre-commit Setup](./PRE_COMMIT.md)
-- [Package Management](./PACKAGE_MANAGEMENT.md)
-- [Test Coverage](./TEST_COVERAGE.md)
+- [Package Management](../PACKAGE_MANAGEMENT.md)
+- [Test Coverage](../testing/TEST_COVERAGE.md)
 
 ## Template Information
 
 - **Source**: [vibe-coding-templates](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/docs/cicd/GITHUB_ACTIONS.md)
-- **Version**: 1.0.0
-- **Date**: 2025-08-19
+- **Templates**: [`templates/cicd/workflows/`](../../templates/cicd/workflows/)
 - **Author**: chrishayuk
-- **Template**: Generic Python Project
-
-### Customization Notes
-
-When using this guide:
-1. Start with the test workflow (required for all projects)
-2. Add additional workflows based on project needs
-3. Customize templates for your specific requirements
-4. Set up secrets before running workflows that need them
-5. Test workflows on feature branches first

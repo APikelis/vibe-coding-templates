@@ -83,16 +83,6 @@ ipython_config.py
 # pyenv
 .python-version
 
-# pipenv
-Pipfile.lock
-
-# poetry
-poetry.lock
-
-# pdm
-.pdm.toml
-.pdm-python
-
 # PEP 582
 __pypackages__/
 
@@ -192,9 +182,7 @@ $RECYCLE.BIN/
 .Trash-*
 .nfs*
 
-# uv
-uv.lock
-.uv/
+# uv (uv.lock is committed on purpose: reproducible installs)
 
 # ruff
 .ruff_cache/
@@ -222,3 +210,5 @@ uv.lock
 secrets.json
 config.local.json
 *.local.*
+.env.*
+!.env.example

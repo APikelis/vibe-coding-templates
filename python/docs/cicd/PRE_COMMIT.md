@@ -2,300 +2,152 @@
 
 ## Overview
 
-Pre-commit hooks automatically check your code before commits, ensuring code quality and preventing common issues. This guide helps you set up hooks based on your project's requirements.
+Pre-commit hooks check your code before it leaves your machine. The template is one file, [`.pre-commit-config.yaml`](../../templates/config/.pre-commit-config.yaml). It is a deliberately small set: fast checks on commit, slower checks on push, and CI as the backstop.
 
 ## Quick Start
 
-1. **Install Pre-commit**
-   ```bash
-   uv add --dev pre-commit
-   ```
+```bash
+# 1. Copy the template
+cp templates/config/.pre-commit-config.yaml .pre-commit-config.yaml
 
-2. **Create Configuration**
-   Create `.pre-commit-config.yaml` with your chosen hooks
+# 2. Add pre-commit to the dev group (also done by the pyproject.toml template)
+uv add --dev pre-commit
 
-3. **Install Hooks**
-   ```bash
-   pre-commit install
-   pre-commit install --hook-type pre-push  # For pre-push hooks
-   ```
+# 3. Install both hook types
+uv run pre-commit install --install-hooks
+uv run pre-commit install --hook-type pre-push
 
-## Choosing Hooks for Your Project
-
-### Essential Hooks (Recommended for all projects)
-- **Ruff**: Fast Python linting and formatting
-  - Template: `pre-commit-ruff-hook.yaml`
-  - Purpose: Maintain code quality
-- **Type checking**: MyPy or Pyright
-  - Template: `pre-commit-mypy-hook.yaml`
-  - Purpose: Catch type errors early
-
-### Additional Quality Hooks
-- **Secret detection**: Prevent credential leaks
-  - Template: `pre-commit-secrets-hook.yaml`
-- **Test coverage**: Ensure adequate testing
-  - Template: `pre-commit-coverage-hook.yaml`
-- **Documentation**: Markdown and YAML validation
-  - Template: `pre-commit-markdown-hook.yaml`
-
-## Available Hook Templates
-
-### Code Quality
-- **Ruff**: [pre-commit-ruff-hook.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/hooks/pre-commit-ruff-hook.yaml)
-- **Black**: [pre-commit-black-hook.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/hooks/pre-commit-black-hook.yaml)
-- **isort**: [pre-commit-isort-hook.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/hooks/pre-commit-isort-hook.yaml)
-
-### Type Checking
-- **MyPy**: [pre-commit-mypy-hook.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/hooks/pre-commit-mypy-hook.yaml)
-- **Pyright**: [pre-commit-pyright-hook.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/hooks/pre-commit-pyright-hook.yaml)
-
-### Testing
-- **Coverage**: [pre-commit-coverage-hook.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/hooks/pre-commit-coverage-hook.yaml)
-- **Pytest**: [pre-commit-pytest-hook.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/hooks/pre-commit-pytest-hook.yaml)
-
-### Security
-- **Secrets**: [pre-commit-secrets-hook.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/hooks/pre-commit-secrets-hook.yaml)
-- **Bandit**: [pre-commit-bandit-hook.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/hooks/pre-commit-bandit-hook.yaml)
-- **Safety**: [pre-commit-safety-hook.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/hooks/pre-commit-safety-hook.yaml)
-
-### Documentation
-- **Markdown**: [pre-commit-markdown-hook.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/hooks/pre-commit-markdown-hook.yaml)
-- **YAML**: [pre-commit-yaml-hook.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/hooks/pre-commit-yaml-hook.yaml)
-
-## Setting Up Hooks
-
-### Step 1: Start with a Basic Configuration
-
-Create `.pre-commit-config.yaml` with essential hooks:
-
-```yaml
-repos:
-  # Ruff - Fast Python linter and formatter
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.0
-    hooks:
-      - id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
-      - id: ruff-format
-
-  # Standard hooks
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
-    hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
-      - id: check-added-large-files
+# 4. Run everything once
+uv run pre-commit run --all-files
 ```
 
-### Step 2: Add Additional Hooks
+`make install` runs steps 3 and the dependency sync for you.
 
-Copy configurations from `templates/cicd/hooks/` for:
-- Type checking (mypy)
-- Secret detection
-- Test coverage
-- Other project-specific needs
+## What the Template Runs
 
-### Step 3: Configure Hook Stages
+| Stage | Hook | Source | Purpose |
+|-------|------|--------|---------|
+| commit | whitespace, EOF, YAML/TOML/JSON syntax, large files, case and merge conflicts, private keys, line endings | `pre-commit-hooks` | Hygiene |
+| commit | `ruff-check` (`--fix`) | `ruff-pre-commit` | Lint, import sorting, security rules |
+| commit | `ruff-format` | `ruff-pre-commit` | Formatting |
+| commit | `gitleaks` | `gitleaks` | Secrets in staged changes |
+| commit | `mypy` | local, via `uv run` | Strict type check of `src/` |
+| pre-push | `pytest` | local, via `uv run` | Tests with the coverage floor from `pyproject.toml` |
+
+### Why Ruff Alone
+
+Ruff replaces four separate tools. Do not add them back alongside it, because they fight over formatting:
+
+| Old tool | Replaced by |
+|----------|-------------|
+| black | `ruff format` |
+| isort | Ruff rule set `I` |
+| flake8 and plugins | Ruff rule sets `E`, `W`, `F`, `B`, `C4`, `SIM`, `UP` |
+| bandit | Ruff rule set `S` |
+
+The rule selection lives in `pyproject.toml` (`[tool.ruff.lint]`), not in the hook, so the hook, `make lint` and CI always agree.
+
+### Why mypy and pytest Are Local Hooks
+
+They use `language: system` with `uv run`, so they run against the project's locked environment. The alternative, a pre-commit-managed mypy mirror, installs a second copy of mypy and your dependencies' type stubs get out of sync with it.
+
+## Pinning and Updating
+
+Every `rev` is a full commit SHA with the tag in a comment:
 
 ```yaml
-# Default stage (pre-commit)
-- id: ruff-check
-  stages: [commit]
-
-# Pre-push stage
-- id: test-coverage
-  stages: [push]
-
-# Manual stage
-- id: full-test-suite
-  stages: [manual]
+rev: c0f278f1254ccc8fb09676bcdb8d847e7db493e5 # frozen: v0.17.4
 ```
 
-### Step 4: Install and Test
+A tag can be moved, and a moved or compromised tag would silently change what runs on every developer machine. A SHA cannot. Update all hooks and keep the pins with:
 
 ```bash
-# Install hooks
-pre-commit install
-pre-commit install --hook-type pre-push
-
-# Test all hooks
-pre-commit run --all-files
-
-# Test specific hook
-pre-commit run ruff-check --all-files
-
-# Run manual stage hooks
-pre-commit run --hook-stage manual
+uv run pre-commit autoupdate --freeze
 ```
+
+Review the diff before committing it.
 
 ## Hook Stages
 
-### Pre-commit Stage
-Runs before each commit:
-- Fast checks (< 5 seconds)
-- Formatting fixes
-- Basic linting
+- **commit** (default): everything that finishes in a few seconds.
+- **pre-push**: tests. Set with `stages: [pre-push]`. The old name `push` is deprecated.
+- **manual**: run on demand with `uv run pre-commit run --hook-stage manual`.
 
-### Pre-push Stage
-Runs before pushing:
-- Type checking
-- Test coverage
-- Security scans
+## Common Tasks
 
-### Manual Stage
-Run on demand:
-- Full test suite
-- Performance benchmarks
-- Deep security analysis
+```bash
+# Run one hook on everything
+uv run pre-commit run ruff-check --all-files
 
-## Using uv with Pre-commit
+# Run the pre-push hooks now
+uv run pre-commit run --hook-stage pre-push --all-files
 
-Configure hooks to use `uv`:
+# Reinstall after a broken install
+uv run pre-commit clean && uv run pre-commit install --install-hooks
+```
+
+### Adding a Hook
+
+Add a new `repo` entry with a frozen SHA, or a `local` hook that goes through `uv run`:
 
 ```yaml
 - repo: local
   hooks:
-    - id: pytest
-      name: Run tests
-      entry: uv run pytest
+    - id: my-check
+      name: my check
+      entry: uv run my-tool
       language: system
       pass_filenames: false
 ```
 
-## Common Hook Patterns
+Keep commit-stage hooks fast. Put anything slow at `pre-push`.
 
-### Auto-fixing Hooks
-```yaml
-- id: ruff-format
-  name: Format with ruff
-  entry: uv run ruff format
-  language: system
-  types: [python]
-  # Files are automatically staged after fixes
+### Skipping Hooks (Emergency Only)
+
+```bash
+SKIP=pytest git push        # skip one hook
+git commit --no-verify      # skip all commit hooks
 ```
 
-### Conditional Hooks
-```yaml
-- id: test-changed
-  name: Test changed files
-  entry: uv run pytest
-  language: system
-  files: \.py$
-  pass_filenames: true
-```
+CI runs the same checks, so a skipped hook only delays the failure.
 
-### Exclude Patterns
-```yaml
-- id: mypy
-  name: Type check
-  entry: uv run mypy
-  language: system
-  types: [python]
-  exclude: ^(tests/|docs/|examples/)
-```
+## Relationship to CI
 
-## Best Practices
+Hooks are a convenience; CI is the control. `ci.yml` runs the same ruff and mypy commands, plus checks that hooks cannot do well:
 
-### 1. Start Small
-Begin with essential hooks and add more gradually:
-- Format checking
-- Basic linting
-- Secret detection
+- gitleaks over **full git history** (the hook only sees staged changes)
+- `pip-audit` over the locked dependencies
+- the test matrix across Python versions and operating systems
 
-### 2. Keep Hooks Fast
-Pre-commit hooks should complete quickly:
-- Use `--hook-stage` for slow checks
-- Run comprehensive tests in CI/CD
-- Cache results when possible
-
-### 3. Auto-fix When Possible
-Enable auto-fixing for formatting:
-```yaml
-- id: ruff-format
-  args: [--fix]
-```
-
-### 4. Document Hook Configuration
-In your README or contributing guide, document:
-- Which hooks are required for contributors
-- How to run hooks manually
-- How to temporarily skip hooks (emergency only)
+Run the CI equivalents locally with `make check`.
 
 ## Troubleshooting
 
-### Common Issues
-
-**Hook Installation Failed**
+**Hook not found or stale environment**
 ```bash
-# Clear and reinstall
-pre-commit clean
-pre-commit uninstall
-pre-commit install
+uv run pre-commit clean
+uv run pre-commit install --install-hooks
 ```
 
-**Hook Timeout**
-```yaml
-# Increase timeout for slow hooks
-- id: slow-hook
-  timeout: 300  # 5 minutes
-```
+**`uv: command not found` in a hook**
+The local hooks need `uv` on `PATH` in the shell git uses. Install uv, or launch git from a shell where it is available.
 
-**File Not Found**
-```bash
-# Ensure dependencies are installed
-uv sync --dev
-```
+**gitleaks false positive**
+Add the path or rule to a `.gitleaks.toml` allowlist rather than skipping the hook.
 
-**Skipping Hooks (Emergency)**
-```bash
-# Skip hooks for emergency commit
-git commit --no-verify -m "Emergency fix"
-
-# Skip specific hook
-SKIP=hook-id git commit -m "Message"
-```
-
-## CI/CD Integration
-
-### Validate Hooks in CI
-```yaml
-# GitHub Actions example
-- name: Run pre-commit
-  run: |
-    uv add --dev pre-commit
-    pre-commit run --all-files
-```
-
-### Pre-commit CI Service
-```yaml
-# .pre-commit-config.yaml
-ci:
-  autofix_commit_msg: 'Auto-fix from pre-commit.ci'
-  autofix_prs: true
-  autoupdate_schedule: weekly
-```
+**mypy passes in the hook but fails in CI (or the reverse)**
+Both read `[tool.mypy]` from `pyproject.toml` and run `mypy src/`. If they differ, check that `uv.lock` is committed and current (`make lock-check`).
 
 ## Related Documentation
 
-- [Pre-commit Documentation](https://pre-commit.com/)
+- [Pre-commit documentation](https://pre-commit.com/)
 - [GitHub Actions Setup](./GITHUB_ACTIONS.md)
-- [Package Management](./PACKAGE_MANAGEMENT.md)
-- [Test Coverage](./TEST_COVERAGE.md)
+- [Code Quality](../testing/CODE_QUALITY.md)
+- [Package Management](../PACKAGE_MANAGEMENT.md)
+- [Test Coverage](../testing/TEST_COVERAGE.md)
 
 ## Template Information
 
 - **Source**: [vibe-coding-templates](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/docs/cicd/PRE_COMMIT.md)
-- **Version**: 1.0.0
-- **Date**: 2025-08-19
+- **Template**: [`templates/config/.pre-commit-config.yaml`](../../templates/config/.pre-commit-config.yaml)
 - **Author**: chrishayuk
-- **Template**: Generic Python Project
-
-### Customization Notes
-
-When using this guide:
-1. Start with essential hooks (ruff, basic checks)
-2. Add more hooks gradually based on team needs
-3. Test hooks locally before committing config
-4. Document any hook overrides or exceptions
-5. Keep hooks fast to maintain developer productivity

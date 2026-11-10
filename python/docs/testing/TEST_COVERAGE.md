@@ -18,20 +18,20 @@ pip install pytest-cov
 ### Running Coverage Reports
 
 ```bash
-# Basic coverage report
-uv run pytest --cov=src/<package_name>
+# Basic coverage report (source and the 80% floor come from pyproject.toml)
+uv run pytest --cov
 
 # Detailed terminal report with missing lines
-uv run pytest --cov=src/<package_name> --cov-report=term-missing
+uv run pytest --cov --cov-report=term-missing
 
 # Generate HTML coverage report
-uv run pytest --cov=src/<package_name> --cov-report=html
+uv run pytest --cov --cov-report=html
 
 # Coverage for specific module
 uv run pytest --cov=src/<package_name>/module tests/module/
 
-# Fail tests if coverage drops below threshold
-uv run pytest --cov=src/<package_name> --cov-fail-under=80
+# Override the floor for one run (the default is fail_under in pyproject.toml)
+uv run pytest --cov --cov-fail-under=90
 ```
 
 ## Coverage Targets
@@ -73,7 +73,7 @@ TOTAL                                     181    103    43%
 ### HTML Reports
 ```bash
 # Generate HTML report
-uv run pytest --cov=src/<package_name> --cov-report=html
+uv run pytest --cov --cov-report=html
 
 # Open report (macOS)
 open htmlcov/index.html
@@ -168,10 +168,10 @@ def helper_wrapper(data):
 ### 4. Use Coverage to Find Gaps
 ```bash
 # Identify untested modules
-uv run pytest --cov=src/<package_name> --cov-report=term-missing | grep "0%"
+uv run pytest --cov --cov-report=term-missing | grep "0%"
 
 # Find partially tested modules
-uv run pytest --cov=src/<package_name> --cov-report=term-missing | grep -E "[0-9]{1,2}%"
+uv run pytest --cov --cov-report=term-missing | grep -E "[0-9]{1,2}%"
 ```
 
 ## Improving Coverage
@@ -180,7 +180,7 @@ uv run pytest --cov=src/<package_name> --cov-report=term-missing | grep -E "[0-9
 
 1. **Measure Baseline**
    ```bash
-   uv run pytest --cov=src/<package_name> --cov-report=term > coverage_baseline.txt
+   uv run pytest --cov --cov-report=term > coverage_baseline.txt
    ```
 
 2. **Identify Gaps**
@@ -201,30 +201,30 @@ uv run pytest --cov=src/<package_name> --cov-report=term-missing | grep -E "[0-9
 4. **Verify Improvement**
    ```bash
    # Run coverage again and compare
-   uv run pytest --cov=src/<package_name> --cov-report=term
+   uv run pytest --cov --cov-report=term
    ```
 
 ## Coverage in CI/CD
 
+### The floor lives in one place
+
+```toml
+# pyproject.toml
+[tool.coverage.report]
+fail_under = 80
+```
+
+Every run that passes `--cov` enforces it: `make coverage`, the pre-push hook and CI. Change the number here, not in the workflow or the hook.
+
 ### GitHub Actions
-See [github-actions-coverage.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/workflows/github-actions-coverage.yaml) for a complete GitHub Actions workflow template with coverage reporting and Codecov integration.
+The [`ci.yml`](../../templates/cicd/workflows/ci.yml) `test` job runs `uv run pytest --cov --cov-report=term-missing --cov-report=xml` across the Python matrix and uploads `coverage.xml` to Codecov from one cell. See [GITHUB_ACTIONS.md](../cicd/GITHUB_ACTIONS.md).
 
 ### Pre-commit Hooks
-See [pre-commit-coverage-hook.yaml](https://github.com/chrishayuk/vibe-coding-templates/blob/main/python/templates/cicd/hooks/pre-commit-coverage-hook.yaml) for pre-commit hook configurations that enforce coverage thresholds.
+The [pre-commit template](../../templates/config/.pre-commit-config.yaml) runs pytest with coverage on **push**, not on commit, to keep commits fast:
 
-Quick setup:
 ```bash
-# Install pre-commit
-uv add --dev pre-commit
-
-# Add hooks to .pre-commit-config.yaml
-# Copy content from the template above
-
-# Install hooks
-pre-commit install
-
-# Run coverage check
-pre-commit run test-coverage --all-files
+uv run pre-commit install --hook-type pre-push
+uv run pre-commit run --hook-stage pre-push --all-files   # run it now
 ```
 
 ## Common Coverage Patterns
@@ -281,8 +281,8 @@ def test_all_branches(input, expected):
 # Ensure test discovery is working
 uv run pytest --collect-only
 
-# Check source path is correct
-uv run pytest --cov=src/<package_name> --cov-report=term
+# Check [tool.coverage.run] source in pyproject.toml points at src/<package_name>
+uv run pytest --cov --cov-report=term
 
 # Verify __init__.py files exist
 find src -name "*.py" -type f | head
@@ -294,7 +294,7 @@ find src -name "*.py" -type f | head
 rm -rf .coverage .pytest_cache
 
 # Run with fresh environment
-uv run pytest --cov=src/<package_name> --no-cov-on-fail
+uv run pytest --cov --no-cov-on-fail
 ```
 
 ### Missing Async Coverage

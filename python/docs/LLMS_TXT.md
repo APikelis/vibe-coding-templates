@@ -66,7 +66,7 @@ project/
 Include only the most common commands:
 - Installation: `uv sync --dev`
 - Testing: `uv run pytest`
-- Quality checks: `make qa`
+- Quality checks: `make check`
 - Help: `make help`
 
 ### 5. Key APIs

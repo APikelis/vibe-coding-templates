@@ -1,0 +1,84 @@
+# pyproject.toml template. Replace {{package_name}}, {{description}}, {{python_version}}.
+# Dev tools live in [dependency-groups] (PEP 735), not the deprecated [tool.uv] dev-dependencies.
+# Do not pin versions here by hand: run `uv add --dev pytest pytest-cov mypy ruff pre-commit`
+# and uv writes the current ones.
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "{{package_name}}"
+version = "0.1.0"
+description = "{{description}}"
+readme = "README.md"
+requires-python = ">={{python_version}}"
+dependencies = []
+
+[project.scripts]
+# {{package_name}} = "{{package_name}}.main:main"
+
+[dependency-groups]
+dev = [
+    "mypy",
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+    "ruff",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/{{package_name}}"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers --strict-config"
+
+[tool.coverage.run]
+source = ["src/{{package_name}}"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError"]
+
+[tool.mypy]
+strict = true
+mypy_path = "src"
+explicit_package_bases = true
+warn_unreachable = true
+show_error_codes = true
+pretty = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[tool.ruff]
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle
+    "F",       # pyflakes
+    "I",       # isort (replaces the standalone isort tool)
+    "B",       # bugbear
+    "C4",      # comprehensions
+    "UP",      # pyupgrade
+    "SIM",     # simplify
+    "PTH",     # use pathlib
+    "S",       # bandit rules (replaces the standalone bandit tool)
+    "RUF",     # ruff-specific
+]
+ignore = ["E501"]  # line length is the formatter's job
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]  # assert is how pytest works
+
+[tool.ruff.lint.isort]
+known-first-party = ["{{package_name}}"]
+
+[tool.ruff.format]
+docstring-code-format = true

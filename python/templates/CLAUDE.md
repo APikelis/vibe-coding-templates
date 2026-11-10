@@ -33,7 +33,7 @@ make check
 uv build
 
 # Clean artifacts
-make clean-all
+make clean
 ```
 
 ## Project Standards
@@ -57,12 +57,11 @@ make clean-all
 - Minimum 80% overall coverage
 - Critical modules: 90-100% coverage
 - All new code must include tests
-- Run `make test-cov` to verify coverage
+- Run `make coverage` to verify coverage
 
 ## Code Style
 
-- Use `ruff` for linting
-- Use `black` for formatting
+- Use `ruff` for linting, formatting and import sorting (no black or isort)
 - Use `mypy` for type checking
 - Run `make format` before committing
 

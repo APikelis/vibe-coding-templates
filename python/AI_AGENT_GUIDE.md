@@ -15,7 +15,7 @@ Quick reference for AI agents using vibe-coding-templates to bootstrap Python pr
 ## ⚠️ IMPORTANT: Required Components
 
 **Every Python project MUST include:**
-- ✅ GitHub Actions workflow (.github/workflows/test.yml)
+- ✅ GitHub Actions workflow (.github/workflows/ci.yml)
 - ✅ Pre-commit configuration (.pre-commit-config.yaml)
 - ✅ Complete test suite in tests/
 - ✅ Proper package structure in src/
@@ -29,7 +29,7 @@ Quick reference for AI agents using vibe-coding-templates to bootstrap Python pr
 **Actions**:
 1. Follow [BOOTSTRAP.md](BOOTSTRAP.md) ALL steps (1-9)
 2. **READ [docs/PACKAGE_MANAGEMENT.md](docs/PACKAGE_MANAGEMENT.md)** when creating pyproject.toml and Makefile (Step 3)
-3. **MUST create .github/workflows/test.yml** (Step 6) - read GitHub Actions docs first
+3. **MUST create .github/workflows/ci.yml** (Step 6) - read GitHub Actions docs first
 4. **MUST create .pre-commit-config.yaml** (Step 7) - read Pre-commit docs first
 5. Replace placeholders: `{project_name}` → `data-processor`, `{package_name}` → `data_processor`
 6. Run ALL verification commands from Step 9 to ensure completeness
@@ -51,10 +51,10 @@ Quick reference for AI agents using vibe-coding-templates to bootstrap Python pr
 
 **Actions**:
 1. **FIRST**: Read [docs/cicd/PRE_COMMIT.md](docs/cicd/PRE_COMMIT.md) completely
-2. **THEN**: Copy hook configs from `templates/cicd/hooks/`
+2. **THEN**: Copy `templates/config/.pre-commit-config.yaml`
 3. Ensure git is initialized first: `git init`
-4. Run `uv run pre-commit install`
-5. Test with `pre-commit run --all-files` (may need to run twice)
+4. Run `uv run pre-commit install --install-hooks` and `uv run pre-commit install --hook-type pre-push`
+5. Test with `uv run pre-commit run --all-files` (may need to run twice)
 
 ### Scenario 4: Convert from pip to uv
 
@@ -63,7 +63,7 @@ Quick reference for AI agents using vibe-coding-templates to bootstrap Python pr
 **Actions**:
 1. **FIRST**: Read entire [docs/PACKAGE_MANAGEMENT.md](docs/PACKAGE_MANAGEMENT.md)
 2. **THEN**: Follow migration guide section specifically
-3. Create `pyproject.toml` with `[tool.uv]` section using template from docs
+3. Create `pyproject.toml` from `templates/config/pyproject.toml` (dev tools go in `[dependency-groups]`, not `[tool.uv]`)
 4. Run `uv sync --dev` to install dependencies
 5. Update all scripts and documentation to use `uv run` commands
 6. Verify with commands from the Package Management doc
@@ -118,8 +118,12 @@ uv run ruff format .   # Format code
 uv run mypy src/       # Type check
 
 # Pre-commit
-pre-commit install     # Set up hooks
-pre-commit run --all-files  # Run all hooks
+uv run pre-commit install --install-hooks              # Set up commit hooks
+uv run pre-commit install --hook-type pre-push         # Set up pre-push hooks
+uv run pre-commit run --all-files                      # Run all hooks
+
+# Everything CI runs
+make check
 ```
 
 ## Troubleshooting
@@ -146,6 +150,8 @@ See troubleshooting sections in:
 
 - **Mypy types-all**: Don't use it, add specific type stubs instead
 - **Markdown code blocks**: Always specify language (` ```python`, ` ```yaml`, ` ```text`)
-- **Pre-commit stages**: Some hooks warn about deprecated stage names - this is OK
+- **Pre-commit stages**: Use `pre-push`, not the deprecated `push`
+- **uv.lock**: Commit it. CI runs with `UV_FROZEN=1` and fails if it is out of date
+- **No black or isort**: ruff replaces them; installing both makes formatters fight
 - **Initial linting**: New code often needs `ruff --fix` on first run
 - **Git init timing**: Must init git before installing pre-commit hooks

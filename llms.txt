@@ -18,9 +18,9 @@ Modern, production-ready templates for multiple programming languages with:
 Complete Python project bootstrap with:
 - **Package Management**: `uv` for 10-100x faster dependency management
 - **Testing**: pytest with coverage reporting
-- **Code Quality**: ruff, black, mypy
-- **CI/CD**: GitHub Actions workflows
-- **Pre-commit**: Automated code quality checks
+- **Code Quality**: ruff (lint, format, imports, security), mypy
+- **CI/CD**: GitHub Actions workflows (SHA-pinned, least-privilege)
+- **Pre-commit**: Automated code quality and secret checks
 - **Documentation**: Comprehensive guides and best practices
 
 ## Quick Start
@@ -61,9 +61,9 @@ vibe-coding-templates/
 │   ├── BOOTSTRAP.md           # Step-by-step setup guide
 │   ├── AI_AGENT_GUIDE.md      # Quick reference for AI agents
 │   ├── templates/             # Configuration templates
-│   │   ├── project/           # Project structure templates
-│   │   ├── cicd/              # CI/CD workflow templates
-│   │   └── config/            # Tool configuration templates
+│   │   ├── Makefile           # Development tasks
+│   │   ├── cicd/workflows/    # ci, release, docs, benchmark
+│   │   └── config/            # pyproject.toml, .pre-commit-config.yaml, .gitignore
 │   └── docs/                  # Comprehensive documentation
 │       ├── PACKAGE_MANAGEMENT.md
 │       ├── testing/
@@ -104,10 +104,10 @@ When helping users create a new project:
 Our Python templates use:
 - **uv**: Ultra-fast package manager (Rust-based)
 - **pytest**: Testing framework with coverage
-- **ruff**: Fast Python linter and formatter
-- **black**: Opinionated code formatter
-- **mypy**: Static type checker
+- **ruff**: Linter, formatter, import sorter and security rules (replaces black, isort, flake8, bandit)
+- **mypy**: Static type checker (strict)
 - **pre-commit**: Git hooks for code quality
+- **gitleaks** and **pip-audit**: Secret scanning and dependency vulnerability audit
 
 ## Best Practices Included
 

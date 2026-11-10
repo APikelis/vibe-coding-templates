@@ -2,150 +2,148 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
+
+# Least privilege: jobs get read-only access unless they ask for more.
+permissions:
+  contents: read
+
+# A newer push to the same ref cancels the run it supersedes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
-  PYTHON_VERSION: "3.11"
-  UV_VERSION: "0.4.0"
+  UV_FROZEN: "1" # fail if uv.lock is out of date instead of silently re-resolving
 
 jobs:
   lint:
-    name: Lint Code
+    name: Lint and type check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
+          persist-credentials: false
+
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          version: ${{ env.UV_VERSION }}
-      
+          enable-cache: true
+
       - name: Install dependencies
-        run: |
-          uv sync --dev
-      
-      - name: Run Ruff check
-        run: |
-          uv run ruff check . --output-format=github
-      
-      - name: Run Ruff format check
-        run: |
-          uv run ruff format . --check
-      
-      - name: Run Black check
-        run: |
-          uv run black . --check --diff
-      
-      - name: Run MyPy
-        run: |
-          uv run mypy src/
+        run: uv sync --dev
+
+      - name: Ruff lint (includes security rules and import sorting)
+        run: uv run ruff check . --output-format=github
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      - name: Type check
+        run: uv run mypy src/
 
   test:
-    name: Test Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    name: Test (Python ${{ matrix.python-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.10", "3.11", "3.12"]
-    
+        os: [ubuntu-latest]
+        python-version: ["3.12", "3.13", "3.14"]
+        include:
+          # Cross-platform check on one version only; add more only if the project ships to them.
+          - os: macos-latest
+            python-version: "3.13"
+          - os: windows-latest
+            python-version: "3.13"
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          python-version: ${{ matrix.python-version }}
-      
+          persist-credentials: false
+
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          version: ${{ env.UV_VERSION }}
-      
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+
       - name: Install dependencies
-        run: |
-          uv sync --dev
-      
+        run: uv sync --dev
+
+      # Coverage floor (fail_under) is set in pyproject.toml.
       - name: Run tests with coverage
-        run: |
-          uv run pytest tests/ --cov=src --cov-report=term-missing --cov-report=xml --cov-report=html
-      
-      - name: Upload coverage reports
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
-        uses: codecov/codecov-action@v4
+        run: uv run pytest --cov --cov-report=term-missing --cov-report=xml
+
+      - name: Upload coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
-          file: ./coverage.xml
-          flags: unittests
-          name: codecov-umbrella
+          files: ./coverage.xml
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  security:
-    name: Security Scan
+  secrets-scan:
+    name: Secret scan
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
+          fetch-depth: 0 # scan history, not just the tip
+          persist-credentials: false
+
+      - name: Install gitleaks
+        # The gitleaks-action needs a licence for organisation repos; the CLI does not.
+        # The tarball's SHA-256 is pinned, as the actions are pinned to commits.
+        env:
+          GITLEAKS_VERSION: "8.30.1"
+          GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o gitleaks.tgz
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum --check --strict
+          tar -xzf gitleaks.tgz gitleaks
+          ./gitleaks git --redact --verbose
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
-        with:
-          version: ${{ env.UV_VERSION }}
-      
-      - name: Install dependencies
-        run: |
-          uv sync --dev
-          uv add bandit safety
-      
-      - name: Run Bandit security scan
-        run: |
-          uv run bandit -r src/ -f json -o bandit-report.json
-        continue-on-error: true
-      
-      - name: Run Safety check
-        run: |
-          uv run safety check --json
-        continue-on-error: true
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      # Audits the locked set, not whatever resolves today.
+      - name: Audit locked dependencies for known vulnerabilities
+        run: uv export --frozen --no-emit-project --format requirements-txt -o requirements-audit.txt && uvx pip-audit@2.10.1 --requirement requirements-audit.txt --disable-pip
 
   build:
-    name: Build Package
+    name: Build package
     runs-on: ubuntu-latest
     needs: [lint, test]
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
+          persist-credentials: false
+
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
-        with:
-          version: ${{ env.UV_VERSION }}
-      
-      - name: Build package
-        run: |
-          uv build
-      
-      - name: Check package
-        run: |
-          uv run pip install --no-deps dist/*.whl
-          uv run python -c "import {package_name}; print({package_name}.__version__)"
-      
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Build
+        run: uv build
+
+      - name: Smoke-test the built wheel in a clean environment
+        run: uv run --isolated --no-project --with dist/*.whl python -c "import {{package_name}}; print({{package_name}}.__version__)"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dist
           path: dist/
